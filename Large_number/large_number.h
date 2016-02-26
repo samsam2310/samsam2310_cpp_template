@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 #include <algorithm>
 
 struct _Base_integer
@@ -96,7 +97,6 @@ struct _Base_integer
 
     void _M_copy_to_string(std::string &__s) const
     {
-        _Base_integer __tmp = *this;
         if(_M_is_zero()){
             __s = "0";
             return;
@@ -194,13 +194,12 @@ struct _Base_integer
     }
 
     // Divid by zero is undefined behavior;
-    // assert(&__y != &__rem);
     // if this == &__z then this = remainder;
     void _M_do_div(const _Base_integer&__y, _Base_integer&__z) // __z -> remainder
     {
         if(_M_size() < __y._M_size()){
-            __z = *this;
             if(this != &__z){
+                __z = *this;
                 _M_v.clear();
                 _M_v.push_back(0);
             }
@@ -236,9 +235,11 @@ struct _Base_integer
                 __rem[__i+__y._M_size()-1] = false;
             }
         }
-        _S_reset_vector(__res);
+        if(this != &__z){
+            _S_reset_vector(__res);
+            _M_v = std::move(__res);
+        }
         _S_reset_vector(__rem);
-        _M_v = std::move(__res);
         __z._M_v = std::move(__rem);
     }
 
