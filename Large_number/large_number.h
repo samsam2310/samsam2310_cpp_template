@@ -19,6 +19,20 @@
 #include <string>
 #include <algorithm>
 
+
+namespace chino{
+
+template<typename T>
+struct _bitset
+{
+    std::vector<T> _M_v;
+
+    _bitset()
+    {
+        _M_v.push_back(0);
+    }
+};
+
 struct _Base_integer
 {
     std::vector<bool> _M_v;
@@ -31,7 +45,7 @@ struct _Base_integer
     _Base_integer(unsigned int __val){
         _M_from_ulong(__val);
     }
-    
+
     _Base_integer(std::vector<bool>&&__val)
     {
         _M_v = std::move(__val);
@@ -480,3 +494,6 @@ integer operator%(const integer&__x, const integer&__y)
 {
     return integer(__x) %= __y;
 }
+
+// namespace end;
+};
