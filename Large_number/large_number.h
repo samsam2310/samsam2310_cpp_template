@@ -324,7 +324,7 @@ public:
     integer(const integer&__oth) = default;
     integer(integer&&__oth):_neg(std::move(__oth._neg)), _Base(std::move(__oth._M_v)){ }
     integer(int __val):_neg(__val < 0), _Base(std::abs(__val)){ }
-    intgger(string __s):_Base()
+    integer(string __s):_Base()
     {
         _M_copy_from_string(__s);
     }
