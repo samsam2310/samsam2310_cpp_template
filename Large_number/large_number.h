@@ -10,6 +10,8 @@
         cin>>a>>b;
         cout<<__gcd(a,b)<<endl;
     }
+    TODO:
+        boolean operator like | & !;
 */
 
 #include <iostream>
