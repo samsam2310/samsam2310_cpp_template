@@ -11,12 +11,28 @@
 using namespace std;
 using namespace __gnu_pbds;
 
+/** Fast getchar();
+  * char c = readchar();
+*/
+inline int readchar() {
+    const int N = 1048576;
+    static char buf[N];
+    static char *p = buf, *end = buf;
+    if(p == end) {
+        if((end = buf + fread(buf, 1, N, stdin)) == buf) return EOF;
+        p = buf;
+    }
+    return *p++;
+}
+/** Fast input int or long long
+  * int a,b,c; gin(a,b,c);
+*/
 template<typename T>
 bool gin(T &x){
     char c=0;bool flag=0;
-    while(c=getchar(),c<'0'&&c!='-'||c>'9')if(c==-1)return false;
+    while(c=readchar(),c<'0'&&c!='-'||c>'9')if(c==-1)return false;
     c=='-'?(flag=1,x=0):(x=c-'0');
-    while(c=getchar(),c>='0'&&c<='9')x=x*10+c-'0';
+    while(c=readchar(),c>='0'&&c<='9')x=x*10+c-'0';
     if(flag)x=-x;
     return true;
 }
