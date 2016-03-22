@@ -44,15 +44,15 @@ inline bool gin(T &x, Args &...args){
 /** Unsigned version, NO EOF.
  */
 template<typename T>
-inline void gin(T &x){
+inline void ugin(T &x){
     char c=0;
     while(c=readchar(),c<'0'||c>'9');
     x=c-'0';
     while(c=readchar(),c>='0'&&c<='9')x=x*10+c-'0';
 }
 template<typename T, typename ...Args>
-inline void gin(T &x, Args &...args){
-    return gin(x)&&gin(args...);
+inline void ugin(T &x, Args &...args){
+    gin(x);gin(args...);
 }
 
 template<long long X>
