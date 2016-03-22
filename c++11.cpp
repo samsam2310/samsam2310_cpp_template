@@ -28,7 +28,7 @@ inline int readchar() {
   * int a,b,c; gin(a,b,c);
 */
 template<typename T>
-bool gin(T &x){
+inline bool gin(T &x){
     char c=0;bool flag=0;
     while(c=readchar(),c<'0'&&c!='-'||c>'9')if(c==-1)return false;
     c=='-'?(flag=1,x=0):(x=c-'0');
@@ -37,7 +37,21 @@ bool gin(T &x){
     return true;
 }
 template<typename T, typename ...Args>
-bool gin(T &x, Args &...args){
+inline bool gin(T &x, Args &...args){
+    return gin(x)&&gin(args...);
+}
+
+/** Unsigned version, NO EOF.
+ */
+template<typename T>
+inline void gin(T &x){
+    char c=0;
+    while(c=readchar(),c<'0'||c>'9');
+    x=c-'0';
+    while(c=readchar(),c>='0'&&c<='9')x=x*10+c-'0';
+}
+template<typename T, typename ...Args>
+inline void gin(T &x, Args &...args){
     return gin(x)&&gin(args...);
 }
 
