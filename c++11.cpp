@@ -52,7 +52,7 @@ inline void ugin(T &x){
 }
 template<typename T, typename ...Args>
 inline void ugin(T &x, Args &...args){
-    gin(x);gin(args...);
+    ugin(x);ugin(args...);
 }
 
 template<long long X>
