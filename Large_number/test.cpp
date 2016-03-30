@@ -8,6 +8,9 @@ main(){
     ios_base::sync_with_stdio(false);
     cin.tie(0);
     integer a,b;
+    a = 1;
+    a<<=100000;
+    cout<<(a)<<endl;
     while(cin>>a>>b){
         cout<<__gcd(a,b)<<endl;
     }
