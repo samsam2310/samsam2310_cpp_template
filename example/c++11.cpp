@@ -11,6 +11,8 @@
 using namespace std;
 using namespace __gnu_pbds;
 
+// ----------------------------------------------
+
 /** Fast getchar();
   * char c = readchar();
 */
@@ -25,6 +27,7 @@ inline int readchar() {
     return *p++;
 }
 /** Fast input int or long long
+  * Need readchar();
   * int a,b,c; gin(a,b,c);
 */
 template<typename T>
@@ -42,6 +45,7 @@ inline bool gin(T &x, Args &...args){
 }
 
 /** Unsigned version, NO EOF.
+ * Need readchar();
  */
 template<typename T>
 inline void ugin(T &x){
@@ -55,6 +59,11 @@ inline void ugin(T &x, Args &...args){
     ugin(x);ugin(args...);
 }
 
+// ----------------------------------------------
+
+/** Compile Fibonacci
+  * cout<<(Fib<i>::x)<<endl; i is a const int;
+ */
 template<long long X>
 struct Fib{
     const static long long x = (Fib<X-2>::x+Fib<X-1>::x)%1000000007;
@@ -67,6 +76,22 @@ template<>
 struct Fib<0>{
     const static long long x=0;
 };
+
+// ----------------------------------------------
+
+/** Magic method for geting 1/sqrt(x);
+ */
+float InvSqrt(float x)
+{
+    float xhalf = 0.5f*x;
+    int i = *(int*)&x; // get bits for floating VALUE 
+    i = 0x5f375a86- (i>>1); // gives initial guess y0
+    x = *(float*)&i; // convert bits BACK to float
+    x = x*(1.5f-xhalf*x*x); // Newton step, repeating increases accuracy
+    return x;
+}
+
+// ----------------------------------------------
 
 main(){
     cout<<(Fib<900>::x)<<endl;
