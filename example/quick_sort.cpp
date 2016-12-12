@@ -5,16 +5,13 @@ using namespace std;
 template<typename T, typename Cmp=less<T> >
 void quick_sort(T *beg, T *end, const Cmp &cmp = Cmp()){
     if(beg == end || beg+1==end)return;
-    T mid = *beg;
-    T *l = beg+1, *r = end-1;
-    while(l != r+1){
-        if(cmp(mid, *r))r--;
-        else if(!cmp(mid, *l))l++;
-        else swap(*l,*r);
+    T *l = beg;
+    for(T*p=beg+1; p!=end; p++){
+        if(cmp(*p,*beg))swap(*(++l),*p);
     }
-    swap(*beg, *r);
-    quick_sort(beg,r,cmp);
-    quick_sort(r+1,end,cmp);
+    swap(*beg, *l);
+    quick_sort(beg,l,cmp);
+    quick_sort(l+1,end,cmp);
 }
 // ---- End ----
 
@@ -31,8 +28,9 @@ void print(){
 }
 
 int main(){
+    srand(time(NULL));
     for(int i=0;i<N;i++){
-        A[i] = rand()%(i+1);
+        A[i] = rand()%N;
     }
     random_shuffle(A,A+N);
     print();
