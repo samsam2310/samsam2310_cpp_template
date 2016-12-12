@@ -9,7 +9,7 @@ void quick_sort(T *beg, T *end, const Cmp &cmp = Cmp()){
     T *l = beg+1, *r = end-1;
     while(l != r+1){
         if(cmp(mid, *r))r--;
-        else if(cmp(*l, mid))l++;
+        else if(!cmp(mid, *l))l++;
         else swap(*l,*r);
     }
     swap(*beg, *r);
@@ -32,7 +32,7 @@ void print(){
 
 int main(){
     for(int i=0;i<N;i++){
-        A[i] = i;
+        A[i] = rand()%(i+1);
     }
     random_shuffle(A,A+N);
     print();
