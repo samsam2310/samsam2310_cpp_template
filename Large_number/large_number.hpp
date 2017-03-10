@@ -14,177 +14,203 @@
         boolean operator like | & !;
 */
 
+#ifndef LARGE_NUMBER
+#define LARGE_NUMBER
+
+#define ABS(x) ((x + (x >> sizeof(x)*8-1)) ^ (x >> sizeof(x)*8-1))
+
 #include <iostream>
 #include <vector>
 #include <string>
 #include <algorithm>
-
+#include <cstddef>
+#include <cstring>
 
 namespace chino{
 
-template<typename T>
-struct _bitset
+template<typename Digit=unsigned long, typename TwoDigit=unsigned long long>
+class Integer
 {
-    std::vector<T> _M_v;
+private:
+    const size_t CHARBIT = 8,
+                 SHIFT = sizeof(Digit)*CHARBIT-1;
+    const Digit MASK = (1 << SHIFT) - 1;
+    Digit *m_digit;
+    ssize_t m_size;
 
-    _bitset()
-    {
-        _M_v.push_back(0);
-    }
-};
-
-struct _Base_integer
-{
-    std::vector<bool> _M_v;
-
-    _Base_integer()
-    {
-        _M_v.push_back(0);
+    Integer() {
+        m_digit = new Digit[1]();
+        m_size = 1;
     }
 
-    _Base_integer(unsigned int __val){
-        _M_from_ulong(__val);
+    // Integer(unsigned int __val){
+    //     _M_from_ulong(__val);
+    // }
+
+    // Integer(std::vector<bool>&&__val)
+    // {
+    //     _M_v = std::move(__val);
+    // }
+
+    // void _M_from_ulong(unsigned int __val) {
+    //     _M_v.clear();
+    //     if(__val == 0){
+    //         _M_v.push_back(0);
+    //         return;
+    //     }
+    //     while(__val){
+    //         _M_v.push_back(__val&1);
+    //         __val >>= 1;
+    //     }
+    // }
+
+    void _M_normalize() {
+        ssize_t i = ABS(m_size), j = i;
+        while(i > 0 && m_digit[i-1] == 0)
+            --i;
+        if (i != j)
+            m_size = (m_size < 0) ? -(i) : i;
     }
 
-    _Base_integer(std::vector<bool>&&__val)
-    {
-        _M_v = std::move(__val);
-    }
-
-
-    static void _S_reset_vector(std::vector<bool>&__v)
-    {
-        while(__v.size() > 1 && !__v.back())__v.pop_back();
-    }
-    
-
-    void _M_from_ulong(unsigned int __val)
-    {
-        _M_v.clear();
-        if(__val == 0){
-            _M_v.push_back(0);
-            return;
-        }
-        while(__val){
-            _M_v.push_back(__val&1);
-            __val >>= 1;
-        }
-    }
-
-    unsigned int _M_to_ulong() const throw(std::overflow_error)
-    {
-        if(_M_size() > 32){
-            throw std::overflow_error("_Base_integer::_M_to_ulong");
-        }
-        unsigned int __res;
-        _M_copy_to_bits(__res);
-        return __res;
-    }
-
-    template<typename T>
-    void _M_copy_to_bits(T&__res) const
-    {
-        const size_t __nbit = std::min(8 * sizeof(__res), _M_size());
-        __res = 0;
-        for(size_t __i = 0; __i < __nbit; __i++){
-            __res |= (T)((bool)_M_v[__i]) << __i;
-        }
-    }
-
-    void _M_copy_from_string(std::string __s) throw(std::range_error)
-    {
-        if(__s.empty()) throw(std::range_error("_Base_integer::_M_copy_from_string"));
-        for(char __c: __s){
-            if(__c < '0' || __c > '9') throw(std::range_error("_Base_integer::_M_copy_from_string"));
-        }
-        auto __p = __s.begin();
-        _M_v.resize(0);
-        while(__p != __s.end()){
-            _M_v.push_back( (__s.back()-'0')&1 );
-            bool __crr = false, __pre;
-            for(auto __i = __p; __i != __s.end(); __i++){
-                __pre = __crr;
-                __crr = (*__i-'0')&1;
-                *__i = (*__i-'0'>>1) + (__pre?'5':'0');
+    void _M_resize(ssize_t size_n) {
+        if(size_n <= sizeof(m_digit)){
+            ssize_t i = ABS(m_size);
+            for(; i < size_n; ++i) {
+                m_digit[i] = 0;
             }
-            while(__p != __s.end() && *__p == '0')__p++;
+        }else{
+            Digit *p = new Digit[size_n];
+            memcpy(p, m_digit, ABS(m_size));
+            delete[] m_digit;
+            m_digit = p;
         }
+        m_size = (m_size < 0) ? -(size_n) : size_n;
     }
 
-    void _M_copy_to_string(std::string &__s) const
-    {
-        if(_M_is_zero()){
-            __s = "0";
-            return;
+    // unsigned int _M_to_ulong() const throw(std::overflow_error)
+    // {
+    //     if(_M_size() > 32){
+    //         throw std::overflow_error("_Base_integer::_M_to_ulong");
+    //     }
+    //     unsigned int __res;
+    //     _M_copy_to_bits(__res);
+    //     return __res;
+    // }
+
+    // template<typename T>
+    // void _M_copy_to_bits(T&__res) const
+    // {
+    //     const size_t __nbit = std::min(8 * sizeof(__res), _M_size());
+    //     __res = 0;
+    //     for(size_t __i = 0; __i < __nbit; __i++){
+    //         __res |= (T)((bool)_M_v[__i]) << __i;
+    //     }
+    // }
+
+    // void _M_copy_from_string(std::string __s) throw(std::range_error)
+    // {
+    //     if(__s.empty()) throw(std::range_error("_Base_integer::_M_copy_from_string"));
+    //     for(char __c: __s){
+    //         if(__c < '0' || __c > '9') throw(std::range_error("_Base_integer::_M_copy_from_string"));
+    //     }
+    //     auto __p = __s.begin();
+    //     _M_v.resize(0);
+    //     while(__p != __s.end()){
+    //         _M_v.push_back( (__s.back()-'0')&1 );
+    //         bool __crr = false, __pre;
+    //         for(auto __i = __p; __i != __s.end(); __i++){
+    //             __pre = __crr;
+    //             __crr = (*__i-'0')&1;
+    //             *__i = (*__i-'0'>>1) + (__pre?'5':'0');
+    //         }
+    //         while(__p != __s.end() && *__p == '0')__p++;
+    //     }
+    // }
+
+    // void _M_copy_to_string(std::string &__s) const
+    // {
+    //     if(_M_is_zero()){
+    //         __s = "0";
+    //         return;
+    //     }
+    //     const _Base_integer __ten(10);
+    //     _Base_integer __q, __r;
+    //     __q = *this;
+    //     __s.clear();
+    //     while(!__q._M_is_zero()){
+    //         __q._M_do_div(__ten, __r);
+    //         __s.push_back('0' + __r._M_to_ulong());
+    //     }
+    //     std::reverse(__s.begin(), __s.end());
+    // }
+
+    void _M_do_add(const Integer &y) {
+        Integer *a = this, *b = &y;
+        ssize_t size_a = ABS(a->m_size), size_b = ABS(b->m_size);
+        if(ABS(a->m_size) < ABS(b->m_size)) {
+            std::swap(a, b);
+            std::swap(size_a, size_b);
         }
-        const _Base_integer __ten(10);
-        _Base_integer __q, __r;
-        __q = *this;
-        __s.clear();
-        while(!__q._M_is_zero()){
-            __q._M_do_div(__ten, __r);
-            __s.push_back('0' + __r._M_to_ulong());
+        _M_resize(size_a+1);
+        Digit carry = 0;
+        ssize_t i = 0;
+        for(; i < size_b; ++i) {
+            carry += a->m_digit[i] + b->m_digit[i];
+            m_digit[i] = carry & MASK;
+            carry >>= SHIFT;
         }
-        std::reverse(__s.begin(), __s.end());
+        for (; i < size_a; ++i) {
+            carry += a->m_digit[i];
+            m_digit[i] = carry & MASK;
+            carry >>= SHIFT;
+        }
+        m_digit[i] = carry;
+        _M_normalize();
     }
 
-    void _M_do_add(const _Base_integer&__y)
-    {
-        const size_t __nbit = std::min(_M_size(), __y._M_size());
-        std::vector<bool> __res;
-        __res.resize( std::max(_M_size(), __y._M_size()) );
-        bool __crr = false;
-        for(size_t __i = 0; __i < __nbit; __i++){
-            __res[__i] = __crr ^ _M_v[__i] ^ __y._M_v[__i];
-            __crr = _M_v[__i] && __y._M_v[__i] || __crr && (_M_v[__i] || __y._M_v[__i]);
-        }
-        if(_M_size() < __y._M_size()){
-            for(size_t __i = _M_size(); __i < __y._M_size(); __i++){
-                __res[__i] = __crr ^ __y._M_v[__i];
-                __crr &= __y._M_v[__i];
+    // Do abs(a) - abs(b)
+    void _M_do_sub(const Integer &y) {
+        Integer *a = this, *b = &y;
+        ssize_t size_a = ABS(a->m_size), size_b = ABS(b->m_size);
+        int sign = 1;
+        if(size_a < size_b) {
+            std::swap(a, b);
+            std::swap(size_a, size_b);
+        }else if(size_a == size_b) {
+            ssize_t i = size_a+1;
+            while(--i>=0 && a->m_digit[i] == b->m_digit[i]) ;
+            if(i < 0) {
+                m_size = 1;
+                m_digit[0] = 0;
+                return ;
             }
-        }else if(_M_size() > __y._M_size()){
-            for(size_t __i = __y._M_size(); __i < _M_size(); __i++){
-                __res[__i] = __crr ^ _M_v[__i];
-                __crr &= _M_v[__i];
+            if(a->m_digit[i] < b->m_digit[i]) {
+                sign = -1;
+                std::swap(a, b);
             }
+            size_a = size_b = i+1;
         }
-        if(__crr)__res.push_back(true);
-        _M_v = std::move(__res);
-    }
-
-    void _M_do_sub(const _Base_integer&__y) // if a < b then return b-a;
-    {
-        const size_t __nbit = std::min(_M_size(), __y._M_size());
-        std::vector<bool> __res;
-        __res.resize( std::max(_M_size(), __y._M_size()) );
-        bool __crr = false;
-        for(size_t __i = 0; __i < __nbit; __i++){
-            __res[__i] = __crr ^ _M_v[__i] ^ __y._M_v[__i];
-            __crr = __crr && __y._M_v[__i] || !_M_v[__i] && (__crr || __y._M_v[__i]);
+        _M_resize(size_a);
+        Digit borrow = 0;
+        ssize_t i = 0;
+        for (; i < size_b; ++i) {
+            /* The following assumes unsigned arithmetic
+               works module 2**N for some N>PyLong_SHIFT. */
+            borrow = a->m_digit[i] - b->m_digit[i] - borrow;
+            m_digit[i] = borrow & MASK;
+            borrow >>= SHIFT;
+            borrow &= 1; /* Keep only one sign bit */
         }
-        if(_M_size() < __y._M_size()){
-            for(size_t __i = _M_size(); __i < __y._M_size(); __i++){
-                __res[__i] = __crr ^ __y._M_v[__i];
-                __crr |= __y._M_v[__i];
-            }
-        }else if(_M_size() > __y._M_size()){
-            for(size_t __i = __y._M_size(); __i < _M_size(); __i++){
-                __res[__i] = __crr ^ _M_v[__i];
-                __crr &= !_M_v[__i];
-            }
+        for (; i < size_a; ++i) {
+            borrow = a->m_digit[i] - borrow;
+            m_digit[i] = borrow & MASK;
+            borrow >>= SHIFT;
+            borrow &= 1; /* Keep only one sign bit */
         }
-        // if small minus big
-        if(__crr){
-            __crr = false;
-            for(size_t __i = 0; __i < __res.size(); __i++){
-                bool __tmp = __res[__i];
-                __res[__i] = __crr ^ __tmp;
-                __crr |= __tmp;
-            }
-        }
-        _S_reset_vector(__res);
-        _M_v = std::move(__res);
+        // assert(borrow == 0);
+        if (sign < 0)
+            m_size = -(m_size);
+        _M_normalize();
     }
 
     void _M_do_mul(const _Base_integer&__y)
@@ -260,52 +286,52 @@ struct _Base_integer
     }
 
     // 0 = equal, 1 = bigger, -1 = smaller
-    char _M_compare_abs(const _Base_integer&__y) const
-    {
-        if(_M_size() != __y._M_size()) return _M_size() < __y._M_size()? -1: 1;
-        for(size_t __i = _M_size() -1; __i+1 > 0; __i--){
-            if(_M_v[__i] != __y._M_v[__i]) return __y._M_v[__i]? -1: 1;
-        }
-        return 0;
-    }
+    // char _M_compare_abs(const _Base_integer&__y) const
+    // {
+    //     if(_M_size() != __y._M_size()) return _M_size() < __y._M_size()? -1: 1;
+    //     for(size_t __i = _M_size() -1; __i+1 > 0; __i--){
+    //         if(_M_v[__i] != __y._M_v[__i]) return __y._M_v[__i]? -1: 1;
+    //     }
+    //     return 0;
+    // }
 
-    void _M_do_left_shift(size_t __shift)
-    {
-        const size_t __pos = _M_size() + __shift;
-        _M_v.resize(__pos);
-        for(size_t __i = __pos-1; __i+1 > __shift; __i--){
-            _M_v[__i] = _M_v[__i - __shift];
-        }
-        std::fill(_M_v.begin(), _M_v.begin()+__shift, false);
-    }
+    // void _M_do_left_shift(size_t __shift)
+    // {
+    //     const size_t __pos = _M_size() + __shift;
+    //     _M_v.resize(__pos);
+    //     for(size_t __i = __pos-1; __i+1 > __shift; __i--){
+    //         _M_v[__i] = _M_v[__i - __shift];
+    //     }
+    //     std::fill(_M_v.begin(), _M_v.begin()+__shift, false);
+    // }
 
-    void _M_do_right_shift(size_t __shift)
-    {
-        const size_t __pos = _M_size() - std::min(__shift, _M_size());
-        for(size_t __i = 0; __i < __pos; __i++){
-            _M_v[__i] = _M_v[__i + __shift];
-        }
-        _M_v.resize(__pos);
-        if(!_M_size())_M_v.push_back(false);
-    }
+    // void _M_do_right_shift(size_t __shift)
+    // {
+    //     const size_t __pos = _M_size() - std::min(__shift, _M_size());
+    //     for(size_t __i = 0; __i < __pos; __i++){
+    //         _M_v[__i] = _M_v[__i + __shift];
+    //     }
+    //     _M_v.resize(__pos);
+    //     if(!_M_size())_M_v.push_back(false);
+    // }
 
-    inline size_t _M_size() const
-    {
-        return _M_v.size();
-    }
+    // inline size_t _M_size() const
+    // {
+    //     return ABS(m_size);
+    // }
 
     inline bool _M_is_zero() const
     {
-        return _M_size() == 1 && !_M_v[0];
+        return ABS(m_size) == 1 && !m_digit[0];
     }
 
-    friend std::ostream& operator<<(std::ostream& ost, _Base_integer& __x) // debug
-    {
-        for(int i=__x._M_v.size()-1;i>=0;i--){
-            ost<<(__x._M_v[i]?'1':'0');
-        }
-        return ost;
-    }
+    // friend std::ostream& operator<<(std::ostream& ost, _Base_integer& __x) // debug
+    // {
+    //     for(int i=__x._M_v.size()-1;i>=0;i--){
+    //         ost<<(__x._M_v[i]?'1':'0');
+    //     }
+    //     return ost;
+    // }
 };
 
 class integer: private _Base_integer{
@@ -501,3 +527,6 @@ integer operator%(const integer&__x, const integer&__y)
 
 // namespace end;
 };
+
+
+#endif
