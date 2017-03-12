@@ -250,17 +250,21 @@ struct BaseInteger {
     static Digit _S_real_add(Digit *digit_res, const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
         Digit carry = 0;
         ssize_t i = 0;
+        // std::cerr<<"REAL ADD";
         for(; i < size_b; ++i) {
-            carry += digit_a[i] + digit_b[i] + carry;
+            carry = digit_a[i] + digit_b[i] + carry;
+            // std::cerr<<carry<<' ';
             digit_res[i] = carry & MASK;
             carry >>= SHIFT;
         }
         for (; i < size_a; ++i) {
-            carry += digit_a[i] + carry;
+            carry = digit_a[i] + carry;
+            // std::cerr<<carry<<' ';
             digit_res[i] = carry & MASK;
             carry >>= SHIFT;
         }
-        return carry;
+        // std::cerr<<"\n";
+        return carry & MASK;
     }
 
     // size_a >= size_b, sizeof(digit_res) >= size_a;
@@ -281,11 +285,11 @@ struct BaseInteger {
             borrow >>= SHIFT;
             borrow &= 1; /* Keep only one sign bit */
         }
-        return borrow;
+        return borrow & MASK;
     }
 
     static BaseInteger* _S_do_mul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
-        std::cerr<<"mul\n";
+        // std::cerr<<"mul\n";
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *res = new BaseInteger(size_a + size_b);
@@ -313,7 +317,7 @@ struct BaseInteger {
     // Karatsuba
     // guarantee that m_size of t1 t2 t3 is positive;
     static BaseInteger* _S_do_kmul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
-        std::cerr<<"k_mul\n";
+        // std::cerr<<"k_mul\n";
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *t1 = NULL, *t2 = NULL, *t3 = NULL, *res;
@@ -329,34 +333,46 @@ struct BaseInteger {
         if(2*size_a <= size_b)
             return _S_k_lopsided_mul(digit_a, size_a, digit_b, size_b);
 
+        // std::cerr<<"Start kmul\n";
         shift = size_b >> 1;
         res = new BaseInteger(size_a + size_b);
         // t1 = ha*hb;
+        // std::cerr<<"    T1\n";
         t1 = _S_do_kmul(digit_a + shift, size_a - shift, digit_b + shift, size_b - shift);
         memcpy(res->m_digit + 2*shift, t1->m_digit, t1->m_size*sizeof(Digit));
+        // std::cerr<<"    T2\n";
         // t2 = la*lb;
         t2 = _S_do_kmul(digit_a, MIN(size_a, shift), digit_b, shift);
         memcpy(res->m_digit, t2->m_digit, t2->m_size*sizeof(Digit));
+        // res->debug("res");
         // res -= t1 << shift + t2 << shift
         // may underflow but it's ok because of unsigned arithmetic mod;
         // t2 first because cache is fresher
         remshift = ABS(res->m_size) - shift;
         _S_real_sub(res->m_digit + shift, res->m_digit + shift, remshift, t2->m_digit, t2->m_size);
         _S_real_sub(res->m_digit + shift, res->m_digit + shift, remshift, t1->m_digit, t1->m_size);
+        // res->debug("res2");
         // t1 = la+ha, t2=lb+hb, t3 = t1 * t2;
         // size of t1,t2 == size_a + size_b;
-        t1->m_size = MAX(shift, size_a - shift) +1;
-        t1->m_digit[t1->m_size-1] = _S_real_add(t1->m_digit, digit_a, shift, digit_a + shift, size_a - shift);
+        t1->_M_resize(MAX(shift, size_a - shift) +1);
+        t1->m_digit[ABS(t1->m_size)-1] = _S_real_add(t1->m_digit, digit_a, shift, digit_a + shift, size_a - shift);
         t1->_M_normalize();
-        t2->m_size = size_b - shift +1; // shift == sizeb /2;
-        t2->m_digit[t2->m_size-1] = _S_real_add(t2->m_digit, digit_b, shift, digit_b + shift, size_b - shift);
+        t2->_M_resize(size_b - shift +1); // shift == sizeb /2;
+        t2->m_digit[ABS(t2->m_size)-1] = _S_real_add(t2->m_digit, digit_b, shift, digit_b + shift, size_b - shift);
         t2->_M_normalize();
+        // t1->debug("t1");
+        // t2->debug("t2");
+        // std::cerr<<"    T3\n";
         t3 = _S_do_kmul(t1->m_digit, t1->m_size, t2->m_digit, t2->m_size);
+        // t3->debug("t3");
+        // std::cerr<<"sh "<<(*(t3->m_digit+t3->m_size-1))<<' '<<*(res->m_digit + shift + t3->m_size-1)<<'\n';
         _S_real_add(res->m_digit + shift, res->m_digit + shift, remshift, t3->m_digit, t3->m_size);
+        // res->debug("res3");
         delete t1;
         delete t2;
         delete t3;
         res->_M_normalize();
+        // std::cerr<<"End kmul\n";
         return res;
     }
 
@@ -692,7 +708,7 @@ public:
             m_digit[0] = 0;
             return *this;
         }
-        for(ssize_t i = 0; i < size_a - dshift; --i)
+        for(ssize_t i = 0; i < size_a - dshift; ++i)
             m_digit[i] = m_digit[i + dshift];
         _M_resize(size_a-dshift);
         _M_do_right_shift(shift % SHIFT);
@@ -792,7 +808,7 @@ public:
     }
 
     friend Integer operator+(const Integer&__x, const Integer&__y) {
-    return Integer(__x) += __y;
+        return Integer(__x) += __y;
     }
     friend Integer operator-(const Integer&__x, const Integer&__y) {
         return Integer(__x) -= __y;
@@ -823,6 +839,14 @@ public:
         tmp._M_do_neg();
         return tmp;
     }
+
+    friend Integer operator<<(const Integer &x, ssize_t y) {
+        return Integer(x) <<= y;
+    }
+    friend Integer operator>>(const Integer &x, ssize_t y) {
+        return Integer(x) >>= y;
+    }
+
 };
 
 void dump(BaseInteger*p) {
