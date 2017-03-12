@@ -7,7 +7,8 @@ using namespace std;
 main(){
     ios_base::sync_with_stdio(false);
     cin.tie(0);
-    chino::Integer a = 1,b = 1, c;
+    chino::Integer a = 1,b = 1, c("12348546445645645");
+    cout<<c<<endl;
     // cin>>a>>b; // 16546451510 46121104710034154 RE
     // cout<<a.m_digit[0]<<endl;
     // cout<<"JIZZ "<<a<<' '<<b<<endl;

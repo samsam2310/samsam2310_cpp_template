@@ -617,9 +617,9 @@ public:
     Integer(unsigned long long val):BaseInteger() {
         _M_copy_from_bits(val);
     }
-    // Integer(std::string s):BaseInteger() {
-    //     _M_copy_from_string(std::move(__s));
-    // }
+    Integer(const char *str):BaseInteger() {
+        _M_copy_from_decimal_string(str, strlen(str));
+    }
 
     Integer& operator=(const Integer &oth) {
         Integer tmp(oth);
