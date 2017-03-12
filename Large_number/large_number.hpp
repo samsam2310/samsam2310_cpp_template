@@ -210,6 +210,7 @@ struct BaseInteger {
 
     // Do abs(a) - abs(b)
     void _M_do_sub(const BaseInteger &x, const BaseInteger &y) {
+        // std::cerr<<"do sub\n";
         const BaseInteger *a = &x, *b = &y;
         ssize_t size_a = ABS(a->m_size), size_b = ABS(b->m_size);
         int sign = 1;
@@ -218,20 +219,26 @@ struct BaseInteger {
             std::swap(a, b);
             std::swap(size_a, size_b);
         }else if(size_a == size_b) {
+            // std::cerr<<"size "<<size_a<<"\n";
+            // std::cerr<<"a digit size " << a->m_digit<<'\n';
             ssize_t i = size_a;
-            while(--i>=0 && a->m_digit[i] == b->m_digit[i]) ;
+            while(--i>=0 && a->m_digit[i] == b->m_digit[i]);
             if(i < 0) {
+                _M_resize(1); // for uninitialized m_digit;
                 m_size = 1;
                 m_digit[0] = 0;
                 return ;
             }
+            // std::cerr<<"before swap \n";
             if(a->m_digit[i] < b->m_digit[i]) {
                 sign = -1;
                 std::swap(a, b);
             }
             size_a = size_b = i+1;
         }
+        // std::cerr<<"before resize sub\n";
         _M_resize(size_a);
+        // std::cerr<<"before real sub\n";
         _S_real_sub(m_digit, a->m_digit, size_a, b->m_digit, size_b);
         // assert(borrow == 0);
         if (sign < 0)
@@ -380,7 +387,7 @@ struct BaseInteger {
         inv = new BaseInteger(size_inv);
         inv_nex = new BaseInteger(size_inv);
         memcpy(inv_nex->m_digit + point - ABS(y.m_size), y.m_digit, sizeof(Digit)*ABS(y.m_size));
-        std::cerr<<"Init\n";
+        // std::cerr<<"Init\n";
         ssize_t i = size_inv;
         while(i) {
             // std::cerr<<" i: "<<i<<"\n";
@@ -399,20 +406,20 @@ struct BaseInteger {
             // std::cin.ignore(1);
         }
         delete inv;
-        std::cerr<<"Find inv\n";
+        // std::cerr<<"Find inv\n";
         quo = _S_do_kmul(inv_nex->m_digit, size_inv, m_digit, m_size);
         delete inv_nex;
         ssize_t size_quo_shift = ABS(quo->m_size)-shift-point;
         for(ssize_t j=0; j < size_quo_shift; j++)
             quo->m_digit[j] = quo->m_digit[j+shift+point];
         quo->_M_resize(MAX(size_quo_shift, 1));
-        std::cerr<<"check quo\n";
+        // std::cerr<<"check quo\n";
         // Check quo and calculate rem
         tmp = _S_do_kmul(quo->m_digit, ABS(quo->m_size), y.m_digit, ABS(y.m_size));
-        std::cerr<<"rem sub\n";
+        // std::cerr<<"rem sub\n";
         rem = new BaseInteger();
         rem->_M_do_sub(*this, *tmp);
-        std::cerr<<"rem sub done"<<rem->m_size<<"\n";
+        // std::cerr<<"rem sub done"<<rem->m_size<<"\n";
         delete tmp;
         if( rem->m_size < 0 ) { // rem < 0
             // std::cerr<<"rem too small\n";

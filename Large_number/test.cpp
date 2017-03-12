@@ -8,7 +8,7 @@ main(){
     ios_base::sync_with_stdio(false);
     cin.tie(0);
     chino::Integer a,b;
-    cin>>a>>b;
+    cin>>a>>b; // 16546451510 46121104710034154 RE
     // cout<<a.m_digit[0]<<endl;
     cout<<"JIZZ "<<a<<' '<<b<<endl;
     cout<<"Add "<<a+b<<endl;
