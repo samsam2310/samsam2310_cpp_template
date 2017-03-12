@@ -30,53 +30,45 @@
 
 namespace chino{
 
+struct BaseInteger;
+void dump (BaseInteger *p) ;
+
+
 struct BaseInteger {
     typedef unsigned long Digit;
     typedef unsigned long long TwoDigit;
     static const size_t CHARBIT = 8,
                  SHIFT = sizeof(Digit)*CHARBIT-1,
-                 DECIMAL_BASE = 1e10,
-                 DECIMAL_SHIFT = 10,
+                 DECIMAL_BASE = 1e9,
+                 DECIMAL_SHIFT = 9,
                  KARATSUBA_CUTOFF = 70;
     static const Digit MASK = ((Digit)1 << SHIFT) - 1U;
     Digit *m_digit;
-    ssize_t m_size;
+    ssize_t m_size, m_real_size;
 
-    BaseInteger():m_digit(NULL), m_size(0) { }
+    BaseInteger():m_digit(NULL), m_size(0), m_real_size(0) { }
 
     BaseInteger(const BaseInteger &oth) {
         // std::cerr<<"copy "<<oth.m_size<<"\n";
         m_size = oth.m_size;
-        ssize_t size_a = ABS(m_size);
-        m_digit = new Digit[size_a];
-        memcpy(m_digit, oth.m_digit, sizeof(Digit) * size_a);
+        m_real_size = ABS(m_size) + 1; // Reserved one Digit space for some operation ex: add, sub, shift;
+        m_digit = new Digit[m_real_size];
+        memcpy(m_digit, oth.m_digit, sizeof(Digit) * ABS(oth.m_size));
     }
-    
-    BaseInteger(ssize_t size_n) {
-        m_digit = new Digit[size_n]();
+
+    // size_n > 0;
+    BaseInteger(ssize_t size_n, ssize_t real_size_n = 0) {
+        if(!real_size_n)
+            real_size_n = size_n + 1; // Reserved one Digit space for some operation ex: add, sub, shift;
         m_size = size_n;
+        m_real_size = real_size_n;
+        // std::cerr<<"New "<<m_real_size<<'\n';
+        m_digit = new Digit[m_real_size]();
     }
 
     ~BaseInteger() {
         delete[] m_digit;
     }
-
-    BaseInteger& operator=(const BaseInteger &oth) {
-        BaseInteger tmp(oth);
-        _M_swap(tmp);
-    }
-
-    // void _M_from_ulong(unsigned int __val) {
-    //     _M_v.clear();
-    //     if(__val == 0){
-    //         _M_v.push_back(0);
-    //         return;
-    //     }
-    //     while(__val){
-    //         _M_v.push_back(__val&1);
-    //         __val >>= 1;
-    //     }
-    // }
 
     void _M_normalize() {
         ssize_t i = ABS(m_size), j = i;
@@ -93,70 +85,54 @@ struct BaseInteger {
         return size_n;
     }
 
+    // size_n > 0
     void _M_resize(ssize_t size_n) {
-        if(m_digit != NULL && size_n <= sizeof(m_digit)){
-            ssize_t i = ABS(m_size);
-            for(; i < size_n; ++i) {
-                m_digit[i] = 0;
-            }
+        // std::cerr<<"resize\n";
+        if(m_digit != NULL && size_n <= m_real_size){
+            // std::cerr<<"resize old\n";
+            const ssize_t size_org = ABS(m_size);
+            if(size_org < size_n)
+                memset(m_digit+size_org, 0, sizeof(Digit) * (size_n - size_org));
         }else{
-            Digit *p = new Digit[size_n]();
+            // std::cerr<<"resize new "<< m_size<<' '<<m_real_size<<' '<<size_n<< "\n";
+            m_real_size = size_n + 1; // Reserved one Digit space for some operation ex: add, sub, shift;
+            Digit *p = new Digit[m_real_size]();
             if(m_digit != NULL){
-                memcpy(p, m_digit, ABS(m_size));
+                // std::cerr<<"memcpy\n";
+                memcpy(p, m_digit, sizeof(Digit) * ABS(m_size));
+                // std::cerr<<"delete\n";
                 delete[] m_digit;
             }
+            // std::cerr<<"affter memcpy\n";
             m_digit = p;
         }
         m_size = (m_size < 0) ? -(size_n) : size_n;
+        // std::cerr<<"resize end\n";
     }
 
     void _M_swap(BaseInteger &y) {
         std::swap(m_digit, y.m_digit);
         std::swap(m_size, y.m_size);
+        std::swap(m_real_size, y.m_real_size);
     }
 
-    // unsigned int _M_to_ulong() const throw(std::overflow_error)
-    // {
-    //     if(_M_size() > 32){
-    //         throw std::overflow_error("_Base_integer::_M_to_ulong");
-    //     }
-    //     unsigned int __res;
-    //     _M_copy_to_bits(__res);
-    //     return __res;
-    // }
-
-    // template<typename T>
-    // void _M_copy_to_bits(T&__res) const
-    // {
-    //     const size_t __nbit = std::min(8 * sizeof(__res), _M_size());
-    //     __res = 0;
-    //     for(size_t __i = 0; __i < __nbit; __i++){
-    //         __res |= (T)((bool)_M_v[__i]) << __i;
-    //     }
-    // }
-
-    BaseInteger* _M_copy_to_decimal() const {
-        // digits = 1 + floor(log2(a) / log2(_PyLong_DECIMAL_BASE))
-        const ssize_t size_a = ABS(m_size), size_n = 1 + size_a * SHIFT / (3 * DECIMAL_SHIFT);
-        BaseInteger *res = new BaseInteger(size_n);
-        Digit *pin = m_digit,
-              *pout = res->m_digit;
-        ssize_t size = 0;
-        for (ssize_t i = size_a; --i >= 0; ) {
-            Digit hi = pin[i];
-            for (ssize_t j = 0; j < size; j++) {
-                TwoDigit z = (TwoDigit)pout[j] << SHIFT | hi;
-                hi = (Digit)(z / DECIMAL_BASE); // pout[j] < DECIMAL_BASE => hi < 2^SHIFT
-                pout[j] = (Digit)(z - (TwoDigit)hi * DECIMAL_BASE);
-            }
-            while (hi) {
-                pout[size++] = hi % DECIMAL_BASE;
-                hi /= DECIMAL_BASE;
-            }
+    template<typename T>
+    void _M_copy_from_bits(T x) {
+        const ssize_t size_bit = sizeof(x)*CHARBIT,
+                      size_n = (size_bit - 1)/ SHIFT + 1;
+        _M_resize(size_n);
+        for(ssize_t i = 0; i < size_n; ++i){
+            m_digit[i] = x & MASK;
+            x >>= SHIFT;
         }
-        res->_M_normalize();
-        if( m_size < 0) res->m_size = -res->m_size;
-        return res;
+    }
+
+    template<typename T>
+    void _M_copy_to_bits(T &x) const {
+        const ssize_t size_bit = MIN(sizeof(x)*CHARBIT, ABS(m_size)*SHIFT),
+                      size_n = (size_bit - 1)/ SHIFT + 1;
+        for(ssize_t i = 0; i < size_n; ++i)
+            x |= (T)m_digit[i] << i*SHIFT;
     }
 
     void _M_copy_from_decimal_string(const char *str, const ssize_t size_s) {
@@ -193,6 +169,30 @@ struct BaseInteger {
             // for (ssize_t j = 0; j < size; j++) std::cout<<pout[j]<<' '; std::cout<<'\n';
         }while ( pcend <= str + size_s );
         _M_normalize();
+    }
+
+    BaseInteger* _M_copy_to_decimal() const {
+        // digits = 1 + floor(log2(a) / log2(_PyLong_DECIMAL_BASE))
+        const ssize_t size_a = ABS(m_size), size_n = 1 + size_a * SHIFT / (3 * DECIMAL_SHIFT);
+        BaseInteger *res = new BaseInteger(size_n);
+        Digit *pin = m_digit,
+              *pout = res->m_digit;
+        ssize_t size = 0;
+        for (ssize_t i = size_a; --i >= 0; ) {
+            Digit hi = pin[i];
+            for (ssize_t j = 0; j < size; j++) {
+                TwoDigit z = (TwoDigit)pout[j] << SHIFT | hi;
+                hi = (Digit)(z / DECIMAL_BASE); // pout[j] < DECIMAL_BASE => hi < 2^SHIFT
+                pout[j] = (Digit)(z - (TwoDigit)hi * DECIMAL_BASE);
+            }
+            while (hi) {
+                pout[size++] = hi % DECIMAL_BASE;
+                hi /= DECIMAL_BASE;
+            }
+        }
+        res->_M_normalize();
+        if( m_size < 0) res->m_size = -res->m_size;
+        return res;
     }
 
     void _M_do_add(const BaseInteger &x,const BaseInteger &y) {
@@ -285,6 +285,7 @@ struct BaseInteger {
     }
 
     static BaseInteger* _S_do_mul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
+        std::cerr<<"mul\n";
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *res = new BaseInteger(size_a + size_b);
@@ -312,6 +313,7 @@ struct BaseInteger {
     // Karatsuba
     // guarantee that m_size of t1 t2 t3 is positive;
     static BaseInteger* _S_do_kmul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
+        std::cerr<<"k_mul\n";
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *t1 = NULL, *t2 = NULL, *t3 = NULL, *res;
@@ -378,31 +380,55 @@ struct BaseInteger {
         return res;
     }
 
+    ssize_t _S_digit_log2(Digit x) const {
+        ssize_t res = 0;
+        while(x>>=1)res++;
+        return res;
+    }
+
     // Divid by zero is undefined behavior;
     void _M_do_div(const BaseInteger &y, BaseInteger *&quo, BaseInteger *&rem) const {
         BaseInteger *inv, *inv_nex, *squ, *tmp;
-        const ssize_t size_inv = 2*ABS(m_size) + 1, // Precision
-                      point = size_inv - 1,
-                      shift = ABS(y.m_size) - 1;
+        const ssize_t shift = ABS(y.m_size) - 1,
+                      size_ylg2 = _S_digit_log2(y.m_digit[ABS(y.m_size)-1]),
+                      bshift = SHIFT - 2*size_ylg2 - 1,
+                      size_inv = ABS(m_size) - shift + 1, // Precision
+                      point = size_inv - 1;
+        if(ABS(m_size) < ABS(y.m_size)) {
+            quo = new BaseInteger(1);
+            rem = new BaseInteger(*this);
+            return;
+        }
         inv = new BaseInteger(size_inv);
         inv_nex = new BaseInteger(size_inv);
-        memcpy(inv_nex->m_digit + point - ABS(y.m_size), y.m_digit, sizeof(Digit)*ABS(y.m_size));
-        // std::cerr<<"Init\n";
+        ssize_t size_ythrow = MAX(ABS(y.m_size) - point, 0);
+        memcpy(inv_nex->m_digit + point - ABS(y.m_size) + size_ythrow, y.m_digit + size_ythrow, sizeof(Digit)*(ABS(y.m_size)-size_ythrow));
+        if(bshift > 0)
+            inv_nex -> _M_do_left_shift(bshift);
+        else if(bshift < 0)
+            inv_nex -> _M_do_right_shift(-bshift);
+        // std::cerr<<"Init "<<m_size<<' '<<y.m_size<<' '<<size_inv<<' '<<inv_nex->m_size<<" \n";
         ssize_t i = size_inv;
+        int cnt = 0;
         while(i) {
-            // std::cerr<<" i: "<<i<<"\n";
+            // std::cerr<<" i: "<<i<<' '<<cnt++<<"\n";
             memcpy(inv->m_digit, inv_nex->m_digit, sizeof(Digit) * size_inv);
+            // inv_nex->debug("inv_nex");dump(inv_nex);
+            // std::cerr<<"Shift inv_nex...\n";
             inv_nex->_M_do_left_shift(1);
-            // inv_nex->debug("inv_nex");
+            // std::cerr<<"Counting squ...\n";
             squ = _S_do_kmul(inv->m_digit, size_inv, inv->m_digit, size_inv);
+            // inv_nex->debug("squ");dump(squ);
+            // std::cerr<<"squ size: "<<squ->m_size<<'\n';
+            // std::cerr<<"Counting tmp...\n";
             tmp = _S_do_kmul(squ->m_digit, ABS(squ->m_size), y.m_digit, ABS(y.m_size));
             delete squ;
-            // tmp->debug("tmp");
+            // tmp->debug("tmp");dump(tmp);
+            // std::cerr<<"tmp size!!! "<<ABS(tmp->m_size)<<' '<< ABS(tmp->m_size)- point - shift<<'\n';
             _S_real_sub(inv_nex->m_digit, inv_nex->m_digit, size_inv, tmp->m_digit + point + shift, ABS(tmp->m_size) - point - shift);
             delete tmp;
             while(i && inv_nex->m_digit[i-1] == inv->m_digit[i-1])
                 --i;
-            // inv->debug("inv");
             // std::cin.ignore(1);
         }
         delete inv;
@@ -410,10 +436,15 @@ struct BaseInteger {
         quo = _S_do_kmul(inv_nex->m_digit, size_inv, m_digit, m_size);
         delete inv_nex;
         ssize_t size_quo_shift = ABS(quo->m_size)-shift-point;
-        for(ssize_t j=0; j < size_quo_shift; j++)
-            quo->m_digit[j] = quo->m_digit[j+shift+point];
+        if(size_quo_shift <= 0)
+            quo->m_digit[0] = 0;
+        else{
+            for(ssize_t j=0; j < size_quo_shift; j++)
+                quo->m_digit[j] = quo->m_digit[j+shift+point];
+        }
         quo->_M_resize(MAX(size_quo_shift, 1));
         // std::cerr<<"check quo\n";
+        // dump(quo);
         // Check quo and calculate rem
         tmp = _S_do_kmul(quo->m_digit, ABS(quo->m_size), y.m_digit, ABS(y.m_size));
         // std::cerr<<"rem sub\n";
@@ -422,7 +453,7 @@ struct BaseInteger {
         // std::cerr<<"rem sub done"<<rem->m_size<<"\n";
         delete tmp;
         if( rem->m_size < 0 ) { // rem < 0
-            // std::cerr<<"rem too small\n";
+            std::cerr<<"rem too small\n";
             rem->_M_do_add(*rem, y);
             Digit one = 1;
             _S_real_sub(quo->m_digit, quo->m_digit, ABS(quo->m_size), &one, 1);
@@ -451,7 +482,9 @@ struct BaseInteger {
 
     // shift < SHIFT
     void _M_do_left_shift(ssize_t shift) {
+        // std::cerr<<"do_left_shift\n";
         _M_resize(ABS(m_size) + 1);
+        // std::cerr<<"after resize\n";
         Digit carry = 0, *p = m_digit, *pend = m_digit + ABS(m_size);
         TwoDigit acc;
         for(; p != pend ; ++p) {
@@ -459,6 +492,7 @@ struct BaseInteger {
             *p = (Digit)acc & MASK;
             carry = (Digit)(acc >> SHIFT);
         }
+        // std::cerr<<"do_left_shift_end\n";
         _M_normalize();
     }
 
@@ -473,6 +507,48 @@ struct BaseInteger {
             *p = (Digit)(acc >> shift);
         }
         _M_normalize();
+    }
+
+    void _M_do_and(const BaseInteger &y) {
+        const BaseInteger *a = this, *b = &y;
+        if(ABS(a->m_size) < ABS(b->m_size))
+            std::swap(a, b);
+        const ssize_t size_b = ABS(b->m_size);
+        _M_resize(size_b);
+        for(ssize_t i = 0; i < size_b; ++i)
+            m_digit[i] = a->m_digit[i] & b->m_digit[i];
+    }
+
+    void _M_do_or(const BaseInteger &y) {
+        const BaseInteger *a = this, *b = &y;
+        if(ABS(a->m_size) < ABS(b->m_size))
+            std::swap(a, b);
+        const ssize_t size_a = ABS(a->m_size), size_b = ABS(b->m_size);
+        _M_resize(size_a);
+        ssize_t i;
+        for(i = 0; i < size_b; ++i)
+            m_digit[i] = a->m_digit[i] | b->m_digit[i];
+        for(; i < size_a; ++i)
+            m_digit[i] = a->m_digit[i];
+    }
+
+    void _M_do_xor(const BaseInteger &y) {
+        const BaseInteger *a = this, *b = &y;
+        if(ABS(a->m_size) < ABS(b->m_size))
+            std::swap(a, b);
+        const ssize_t size_a = ABS(a->m_size), size_b = ABS(b->m_size);
+        _M_resize(size_a);
+        ssize_t i;
+        for(i = 0; i < size_b; ++i)
+            m_digit[i] = a->m_digit[i] ^ b->m_digit[i];
+        for(; i < size_a; ++i)
+            m_digit[i] = a->m_digit[i];
+    }
+
+    void _M_do_neg() {
+        const ssize_t size_n = ABS(m_size);
+        for(ssize_t i = 0; i < size_n; ++i)
+            m_digit[i] = ~m_digit[i] & MASK;
     }
 
     bool _M_is_zero() const {
@@ -490,37 +566,70 @@ struct BaseInteger {
 
 class Integer: public BaseInteger {
 private:
-    ssize_t _M_size() const {
-        return m_size;
+    template<typename T>
+    void _M_copy_from_sign_bits(T x) {
+        if( x < 0 ){
+            _M_copy_from_bits(-x);
+            m_size = -m_size;
+        }else
+            _M_copy_from_bits(x);
+    }
+
+    template<typename T>
+    void _M_copy_to_sign_bits(T &x) {
+        _M_copy_to_bits(x);
+        if( m_size < 0)
+            x = -x;
     }
 
 public:
     Integer():BaseInteger() { }
     Integer(const Integer& oth):BaseInteger(oth) { }
-    Integer(Integer &&oth) {
-        m_digit = NULL;
-        m_size = 0;
+    Integer(Integer &&oth):BaseInteger() {
         _M_swap(oth);
     }
-    // Integer(int __val):_neg(__val < 0), _Base(std::abs(__val)){ }
-    // Integer(std::string __s):_Base()
-    // {
+
+    Integer(int val):BaseInteger() {
+        _M_copy_from_sign_bits(val);
+    }
+    Integer(long long val):BaseInteger() {
+        _M_copy_from_sign_bits(val);
+    }
+    Integer(unsigned int val):BaseInteger() {
+        _M_copy_from_bits(val);
+    }
+    Integer(unsigned long long val):BaseInteger() {
+        _M_copy_from_bits(val);
+    }
+    // Integer(std::string s):BaseInteger() {
     //     _M_copy_from_string(std::move(__s));
     // }
 
-    Integer& operator=(const Integer&__oth) = default;
-    Integer& operator=(Integer &&oth) {
+    Integer& operator=(const Integer &oth) {
         Integer tmp(oth);
         _M_swap(tmp);
+        return *this;
     }
-    // Integer& operator=(int __val) {
-    //     _neg = __val < 0;
-    //     _M_from_ulong(std::abs(__val));
-    // }
-    
+    Integer& operator=(Integer &&oth) {
+        _M_swap(oth);
+        return *this;
+    }
+
+    Integer& operator=(int val) {
+        _M_copy_from_sign_bits(val);
+    }
+    Integer& operator=(long long val) {
+        _M_copy_from_sign_bits(val);
+    }
+    Integer& operator=(unsigned int val) {
+        _M_copy_from_bits(val);
+    }
+    Integer& operator=(unsigned long long val) {
+        _M_copy_from_bits(val);
+    }
 
     Integer& operator+=(const Integer &y) {
-        if(_M_size() == y._M_size())
+        if(m_size == y.m_size)
             _M_do_add(*this, y);
         else
             _M_do_sub(*this, y);
@@ -528,7 +637,7 @@ public:
     }
 
     Integer& operator-=(const Integer &y) {
-        if(_M_size() != y._M_size())
+        if(m_size != y.m_size)
             _M_do_add(*this, y);
         else
             _M_do_sub(*this, y);
@@ -537,7 +646,7 @@ public:
 
     Integer& operator*=(const Integer &y) {
         Integer *tmp = (Integer*)_S_do_kmul(m_digit, ABS(m_size), y.m_digit, ABS(y.m_size));
-        tmp->m_size = ((_M_size() < 0) != (y._M_size() < 0))? -tmp->m_size : tmp->m_size;
+        tmp->m_size = ((m_size < 0) != (y.m_size < 0))? -tmp->m_size : tmp->m_size;
         _M_swap(*tmp);
         delete tmp;
         return *this;
@@ -545,13 +654,13 @@ public:
 
     Integer& operator/=(const Integer &y) {
         BaseInteger *quo = NULL, *rem = NULL;
-        std::cerr<<"div\n";
+        // std::cerr<<"div\n";
         _M_do_div(y, quo, rem);
-        quo->m_size = ((_M_size() < 0) != (y._M_size() < 0))? -quo->m_size : quo->m_size;
+        quo->m_size = ((m_size < 0) != (y.m_size < 0))? -quo->m_size : quo->m_size;
         _M_swap(*quo);
         delete quo;
         delete rem;
-        std::cerr<<"div op done\n";
+        // std::cerr<<"div op done\n";
         return *this;
     }
 
@@ -559,7 +668,7 @@ public:
     Integer operator%=(const Integer &y){
         BaseInteger *quo, *rem;
         _M_do_div(y, quo, rem);
-        rem->m_size = (_M_size() < 0)? -rem->m_size : rem->m_size;
+        rem->m_size = (m_size < 0)? -rem->m_size : rem->m_size;
         _M_swap(*rem);
         delete quo;
         delete rem;
@@ -590,6 +699,20 @@ public:
         return *this;
     }
 
+    Integer& operator&=(const Integer &y) {
+        _M_do_and(y);
+        return *this;
+    }
+    Integer& operator|=(const Integer &y) {
+        _M_do_or(y);
+        return *this;
+    }
+    Integer& operator^=(const Integer &y) {
+        _M_do_xor(y);
+        return *this;
+    }
+
+
     bool operator==(const Integer &y) const {
         return _M_compare(y) == 0;
     }
@@ -613,22 +736,28 @@ public:
     explicit operator bool(){
         return !_M_is_zero();
     }
-    // explicit operator size_t(){
-    //     size_t __res;
-    //     _M_copy_to_bits(__res);
-    //     return __res;
-    // }
-    // explicit operator int(){
-    //     int __res;
-    //     _M_copy_to_bits(__res);
-    //     return __res;
-    // }
-    // explicit operator long long(){
-    //     long long __res;
-    //     _M_copy_to_bits(__res);
-    //     return __res;
-    // }
-    
+    explicit operator int(){
+        int res;
+        _M_copy_to_sign_bits(res);
+        return res;
+    }
+    explicit operator long long(){
+        long long res;
+        _M_copy_to_sign_bits(res);
+        return res;
+    }
+    explicit operator unsigned int(){
+        unsigned int res;
+        _M_copy_to_bits(res);
+        return res;
+    }
+    explicit operator unsigned long long(){
+        unsigned long long res;
+        _M_copy_to_bits(res);
+        return res;
+    }
+
+
     friend std::istream& operator>>(std::istream &ist, Integer &x) {
         std::string s;
         ist>>s;
@@ -662,30 +791,42 @@ public:
         return ost;
     }
 
-    // void debug() // debug
-    // {
-    //     for(int i=_M_v.size()-1;i>=0;i--){
-    //         std::cout<<(_M_v[i]?'1':'0');
-    //     }
-    // }
+    friend Integer operator+(const Integer&__x, const Integer&__y) {
+    return Integer(__x) += __y;
+    }
+    friend Integer operator-(const Integer&__x, const Integer&__y) {
+        return Integer(__x) -= __y;
+    }
+    friend Integer operator*(const Integer&__x, const Integer&__y) {
+        return Integer(__x) *= __y;
+    }
+    friend Integer operator/(const Integer&__x, const Integer&__y) {
+        Integer tmp = Integer(__x) /= __y;
+        // std::cerr<<"div op / done\n";
+        return tmp;
+    }
+    friend Integer operator%(const Integer&__x, const Integer&__y) {
+        return Integer(__x) %= __y;
+    }
+
+    friend Integer operator&(const Integer &x, const Integer &y) {
+        return Integer(x) &= y;
+    }
+    friend Integer operator|(const Integer &x, const Integer &y) {
+        return Integer(x) &= y;
+    }
+    friend Integer operator^(const Integer &x, const Integer &y) {
+        return Integer(x) &= y;
+    }
+    friend Integer operator~(const Integer &x) {
+        Integer tmp(x);
+        tmp._M_do_neg();
+        return tmp;
+    }
 };
 
-Integer operator+(const Integer&__x, const Integer&__y) {
-    return Integer(__x) += __y;
-}
-Integer operator-(const Integer&__x, const Integer&__y) {
-    return Integer(__x) -= __y;
-}
-Integer operator*(const Integer&__x, const Integer&__y) {
-    return Integer(__x) *= __y;
-}
-Integer operator/(const Integer&__x, const Integer&__y) {
-    Integer tmp = Integer(__x) /= __y;
-    std::cerr<<"div op / done\n";
-    return tmp;
-}
-Integer operator%(const Integer&__x, const Integer&__y) {
-    return Integer(__x) %= __y;
+void dump(BaseInteger*p) {
+    std::cerr<<(*(Integer*)p)<<'\n';
 }
 
 
