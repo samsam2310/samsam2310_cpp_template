@@ -84,6 +84,7 @@ struct BaseInteger {
 
     //! Assert size_n > 0
     void _M_resize(ssize_t size_n) {
+        assert(size_n > 0);
         if(m_digit != NULL && size_n <= m_real_size){
             const ssize_t size_org = ABS(m_size);
             if(size_org < size_n)
@@ -98,6 +99,10 @@ struct BaseInteger {
             m_digit = p;
         }
         m_size = (m_size < 0) ? -(size_n) : size_n;
+    }
+
+    void _M_resign(bool sign) {
+        m_size = sign ? ABS(m_size): -ABS(m_size);
     }
 
     void _M_swap(BaseInteger &y) {
@@ -125,6 +130,7 @@ struct BaseInteger {
             x |= (T)m_digit[i] << i*SHIFT;
     }
 
+    // Assert all char in str are digit.(Do not contain '-')
     void _M_copy_from_decimal_string(const char *str, const ssize_t size_s) {
         /*  digits = 1 + floor(log10(a) / log10(BASE))
             log10(BASE) = log10(2) * SHIFT > 0.3010*SHIFT */
@@ -185,6 +191,7 @@ struct BaseInteger {
         _M_resize(size_a+1);
         m_digit[size_a] = _S_real_add(m_digit, a->m_digit, size_a, b->m_digit, size_b);
         _M_normalize();
+        _M_resign(x.m_size > 0);
     }
 
     // Do abs(a) - abs(b)
@@ -213,9 +220,9 @@ struct BaseInteger {
         }
         _M_resize(size_a);
         _S_real_sub(m_digit, a->m_digit, size_a, b->m_digit, size_b);
-        if (sign < 0)
-            m_size = -(m_size);
         _M_normalize();
+        _M_resign(x.m_size >= 0);
+        m_size *= sign;
     }
 
     //! Assert size_a >= size_b and sizeof(digit_res) >= size_a.
@@ -585,7 +592,7 @@ public:
     }
 
     Integer& operator+=(const Integer &y) {
-        if(m_size == y.m_size)
+        if((m_size >= 0) == (y.m_size >= 0))
             _M_do_add(*this, y);
         else
             _M_do_sub(*this, y);
@@ -593,7 +600,7 @@ public:
     }
 
     Integer& operator-=(const Integer &y) {
-        if(m_size != y.m_size)
+        if((m_size >= 0) != (y.m_size >= 0))
             _M_do_add(*this, y);
         else
             _M_do_sub(*this, y);
@@ -715,8 +722,8 @@ public:
     friend std::istream& operator>>(std::istream &ist, Integer &x) {
         std::string s;
         ist>>s;
-        int i = 0;
-        if(s[0] == '-') i = 1;
+        int i = 0, neg = 0;
+        if(s[0] == '-') i = 1, neg = 1;
         if(s.size() == i){
             ist.setstate(std::istream::failbit);
             return ist;
@@ -726,7 +733,8 @@ public:
                 ist.setstate(std::istream::failbit);
                 return ist;
             }
-        x._M_copy_from_decimal_string(s.c_str(), s.size());
+        x._M_copy_from_decimal_string(s.c_str()+neg, s.size()-neg);
+        x._M_resign(!neg);
         return ist;
     }
 
@@ -747,6 +755,11 @@ public:
 
     friend Integer operator+(const Integer&__x, const Integer&__y) {
         return Integer(__x) += __y;
+    }
+    friend Integer operator-(const Integer&__x) {
+        Integer res(__x);
+        res.m_size = -res.m_size;
+        return res;
     }
     friend Integer operator-(const Integer&__x, const Integer&__y) {
         return Integer(__x) -= __y;

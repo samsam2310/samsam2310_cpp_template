@@ -12,17 +12,18 @@ main(){
                    c("12348546445645645");
     // cout<<((a*c)/c == b?"YES":"NO")<<endl;
     // cout<<(chino::Integer(5)/chino::Integer("21313213213212311213"))<<endl;
-    cout<<c<<endl;
-    cout<<"A B "<<a<<' '<<b<<endl;
-    cout<<"Add "<<a+b<<endl;
-    cout<<"Sub "<<a-b<<endl;
-    cout<<"Div "<<a/b<<endl;
-    cout<<"Mod "<<a%b<<endl;
-    cout<<"And "<<(a&b)<<endl;
-    a = 1;
-    a<<=100000;
-    cout<<"2^100000: "<<(a)<<endl;
+    // cout<<c<<endl;
+    // cout<<"A B "<<a<<' '<<b<<endl;
+    // cout<<"Add "<<a+b<<endl;
+    // cout<<"Sub "<<a-b<<endl;
+    // cout<<"Div "<<a/b<<endl;
+    // cout<<"Mod "<<a%b<<endl;
+    // cout<<"And "<<(a&b)<<endl;
+    // a = 1;
+    // a<<=100000;
+    // cout<<"2^100000: "<<(a)<<endl;
     while(cin>>a>>b){
-        cout<<__gcd(a,b)<<endl;
+        // cout<<__gcd(a,b)<<endl;
+        cout<<a<<' '<<b<<' '<<a+b<<' '<<a-b<<endl;
     }
 }
