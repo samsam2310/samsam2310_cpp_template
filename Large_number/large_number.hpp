@@ -134,7 +134,6 @@ struct BaseInteger {
     }
 
     // Assert all char in str are digit.(Do not contain '-')
-    // TODO: Bug
     void _M_copy_from_decimal_string(const char *str, const ssize_t size_s) {
         /*  digits = 1 + floor(log10(a) / log10(BASE))
             log10(BASE) = log10(2) * SHIFT > 0.3010*SHIFT */
@@ -757,7 +756,7 @@ public:
             if(tmp->m_size < 0)ost<<'-';
             for(ssize_t i = ABS(tmp->m_size) - 1; i >= 0; --i){
                 ost<<tmp->m_digit[i];
-                ost<<std::setfill('0')<<std::setw(DECIMAL_SHIFT-1);
+                ost<<std::setfill('0')<<std::setw(DECIMAL_SHIFT);
             }
         }
         ost<<std::setw(0);
