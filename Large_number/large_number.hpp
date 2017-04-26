@@ -54,8 +54,10 @@ struct BaseInteger {
         memcpy(m_digit, oth.m_digit, sizeof(Digit) * ABS(oth.m_size));
     }
 
-    //! Assert size_n > 0;
+    //! Assert size_n >= 0, real_size_n >= 0;
     BaseInteger(ssize_t size_n, ssize_t real_size_n = 0) {
+        assert(size_n >= 0);
+        assert(real_size_n >= 0);
         if(!real_size_n)
             real_size_n = size_n + 1; /* Reserved one Digit space for some operation ex: add, sub, shift. */
         m_size = size_n;
@@ -101,6 +103,7 @@ struct BaseInteger {
         m_size = (m_size < 0) ? -(size_n) : size_n;
     }
 
+    // sign == 1 => Integer >= 0.
     void _M_resign(bool sign) {
         m_size = sign ? ABS(m_size): -ABS(m_size);
     }
@@ -266,6 +269,8 @@ struct BaseInteger {
     }
 
     static BaseInteger* _S_do_mul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
+        assert(size_a >= 0);
+        assert(size_b >= 0);
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *res = new BaseInteger(size_a + size_b);
@@ -293,6 +298,8 @@ struct BaseInteger {
     //  Karatsuba
     //! Guarantee that m_size of t1 t2 t3 is positive.
     static BaseInteger* _S_do_kmul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
+        assert(size_a >= 0);
+        assert(size_b >= 0);
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *t1 = NULL, *t2 = NULL, *t3 = NULL, *res;
@@ -340,6 +347,8 @@ struct BaseInteger {
     }
 
     static BaseInteger* _S_k_lopsided_mul(const Digit *digit_a, ssize_t size_a, const Digit *digit_b, ssize_t size_b) {
+        assert(size_a >= 0);
+        assert(size_b >= 0);
         size_a = _S_noralize_digit(digit_a, size_a);
         size_b = _S_noralize_digit(digit_b, size_b);
         BaseInteger *res, *product;
@@ -404,7 +413,7 @@ struct BaseInteger {
                 --i;
         }
         delete inv;
-        quo = _S_do_kmul(inv_nex->m_digit, size_inv, m_digit, m_size);
+        quo = _S_do_kmul(inv_nex->m_digit, size_inv, m_digit, ABS(m_size));
         delete inv_nex;
         ssize_t size_quo_shift = ABS(quo->m_size)-shift-point;
         if(size_quo_shift <= 0)
@@ -415,8 +424,9 @@ struct BaseInteger {
         }
         quo->_M_resize(MAX(size_quo_shift, 1));
         tmp = _S_do_kmul(quo->m_digit, ABS(quo->m_size), y.m_digit, ABS(y.m_size));
-        rem = new BaseInteger();
-        rem->_M_do_sub(*this, *tmp);
+        rem = new BaseInteger(*this);
+        rem->_M_resign(true);
+        rem->_M_do_sub(*rem, *tmp);
         delete tmp;
         if( rem->m_size < 0 ) { /* rem < 0 */
             std::cerr<<"rem too small\n";
@@ -618,7 +628,7 @@ public:
     Integer& operator/=(const Integer &y) {
         BaseInteger *quo = NULL, *rem = NULL;
         _M_do_div(y, quo, rem);
-        quo->m_size = ((m_size < 0) != (y.m_size < 0))? -quo->m_size : quo->m_size;
+        quo->_M_resign((m_size < 0) == (y.m_size < 0));
         _M_swap(*quo);
         delete quo;
         delete rem;
@@ -629,7 +639,7 @@ public:
     Integer operator%=(const Integer &y){
         BaseInteger *quo, *rem;
         _M_do_div(y, quo, rem);
-        rem->m_size = (m_size < 0)? -rem->m_size : rem->m_size;
+        rem->_M_resign(m_size > 0);
         _M_swap(*rem);
         delete quo;
         delete rem;
