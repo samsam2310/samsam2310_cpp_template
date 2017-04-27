@@ -211,7 +211,7 @@ struct BaseInteger {
             while(--i>=0 && a->m_digit[i] == b->m_digit[i]);
             if(i < 0) {
                 _M_resize(1); /* for uninitialized m_digit. */
-                m_size = 1;
+                _M_resign(true);
                 m_digit[0] = 0;
                 return ;
             }
